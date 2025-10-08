@@ -1,0 +1,144 @@
+:root {
+  --bg: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  --card-bg: #ffffffcc;
+  --accent: #00c6ff;
+  --secondary: #e2e8f0;
+  --text: #0f172a;
+}
+
+body {
+  font-family: "Poppins", system-ui, sans-serif;
+  background: var(--bg);
+  margin: 0;
+  padding: 14px;
+  color: var(--text);
+  width: 420px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.item {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.item h3 {
+  font-size: 14px;
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+
+.item small {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.progress {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.item button {
+  margin-top: 8px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.item button:hover {
+  background: #0090ff;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  background: var(--accent);
+  color: #fff;
+  transition: transform 0.1s;
+}
+
+.btn:hover {
+  transform: scale(1.03);
+}
+
+.btn.secondary {
+  background: var(--secondary);
+  color: #111827;
+}
+
+.btn.accent {
+  background: linear-gradient(135deg, #00d4ff, #0062ff);
+  color: white;
+}
+
+.item .deleteBtn {
+  background: #ef4444 !important;
+}
+.item .deleteBtn:hover {
+  background: #dc2626 !important;
+}
