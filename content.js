@@ -142,3 +142,79 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.remove("currentReading");
   }
 })();
+
+// === 📊 Live Scroll Tracking ===
+(function initLiveProgressTracker() {
+  let tracking = false;
+  let trackerBar = null;
+  let currentUrl = window.location.href.split("#")[0];
+
+  chrome.storage.local.get({ bookmarks: [] }, (data) => {
+    const bookmark = (data.bookmarks || []).find(b => currentUrl.startsWith(b.url.split("#")[0]));
+    if (!bookmark) return;
+
+    // Create small floating tracker
+    trackerBar = document.createElement("div");
+    trackerBar.id = "vibrant-live-tracker";
+    Object.assign(trackerBar.style, {
+      position: "fixed",
+      bottom: "18px",
+      right: "18px",
+      width: "160px",
+      height: "8px",
+      background: "rgba(255,255,255,0.15)",
+      borderRadius: "8px",
+      overflow: "hidden",
+      zIndex: 999999,
+      boxShadow: "0 0 8px rgba(0,0,0,0.4)",
+      transition: "opacity 0.3s ease",
+      cursor: "pointer"
+    });
+
+    const fill = document.createElement("div");
+    Object.assign(fill.style, {
+      width: "0%",
+      height: "100%",
+      background: "linear-gradient(90deg, #00c6ff, #00ffcc)",
+      transition: "width 0.3s ease"
+    });
+    trackerBar.appendChild(fill);
+    document.body.appendChild(trackerBar);
+
+    tracking = true;
+    updateBar();
+
+    window.addEventListener("scroll", () => {
+      if (!tracking) return;
+      updateBar(true);
+    });
+
+    function updateBar(save = false) {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = Math.min((scrollTop / docHeight) * 100, 100);
+      fill.style.width = `${progress}%`;
+
+      if (save) {
+        // Save scroll progress every few seconds
+        throttleSave(progress);
+      }
+    }
+
+    let saveTimeout = null;
+    function throttleSave() {
+      if (saveTimeout) return;
+      saveTimeout = setTimeout(() => {
+        saveTimeout = null;
+        chrome.storage.local.get({ bookmarks: [] }, (d) => {
+          const all = d.bookmarks || [];
+          const idx = all.findIndex(b => b.url.split("#")[0] === currentUrl);
+          if (idx >= 0) {
+            all[idx].scrollY = window.scrollY || 0;
+            chrome.storage.local.set({ bookmarks: all });
+          }
+        });
+      }, 1500);
+    }
+  });
+})();

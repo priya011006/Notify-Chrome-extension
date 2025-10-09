@@ -7,16 +7,19 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  
-<div id="bookmarkList" class="list"></div>
+  <header>
+    <div class="header-left">
+      <img src="icons/icon48.png" class="logo" alt="logo">
+      <h1>Your Saved Progress</h1>
+    </div>
+
+    <!-- Top-right theme toggle -->
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle light/dark" title="Toggle light/dark mode" aria-pressed="false">
+      <span class="icon">🌞</span>
+    </button>
+  </header>
 
   <div class="container">
- <header>
-  <img src="icons/icon48.png" class="logo" alt="logo">
-  <h1>Your Saved Progress</h1>
-</header>
-
-
     <div class="actions">
       <button id="addCurrent" class="btn accent">+ Add Current Page</button>
       <button id="restoreAll" class="btn">Restore All</button>
