@@ -2,23 +2,27 @@
    THEME SYSTEM — Professional Light & Dark Mode (with animation)
    ============================================================ */
 :root {
-  --bg-gradient: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  --bg-gradient: linear-gradient(135deg, #9775fa 0%, #4dabf7 100%);
   --card-bg: #ffffffcc;
   --text-color: #0f172a;
-  --accent: #00c6ff;
+  --accent: #5c7cfa;
   --secondary: #e2e8f0;
   --item-bg: #f9fafb;
   --shadow: rgba(0, 0, 0, 0.12);
+  --delete-color: hsl(0, 100%, 50%);
+  --progress-gradient: linear-gradient(90deg, #5c7cfa 0%, #63e6be 50%, #ff8787 100%);
 }
 
 body.dark {
   --bg-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   --card-bg: rgba(30, 41, 59, 0.85);
   --text-color: #e2e8f0;
-  --accent: #38bdf8;
+  --accent: #5c7cfa;
   --secondary: #334155;
   --item-bg: #111827;
   --shadow: rgba(0, 0, 0, 0.4);
+  --delete-color: hwb(0 0% 0%);
+  --progress-gradient: linear-gradient(90deg, #5c7cfa 0%, #63e6be 50%, #ff8787 100%);
 }
 
 /* Smooth transition for theme changes */
@@ -104,6 +108,7 @@ header h1 {
   padding: 12px;
   border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  border: 2px solid white; /* Add white border to resource card */
 }
 
 .list {
@@ -142,11 +147,11 @@ header h1 {
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent) 0%, #00ffcc 100%);
+  background: var(--progress-gradient);
   width: 0%;
   border-radius: 8px;
   transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 0 0 6px rgba(0, 255, 255, 0.4);
+  box-shadow: 0 0 6px rgba(116, 192, 252, 0.4);
 }
 
 /* Optional glowing pulse when updating */
@@ -192,7 +197,7 @@ header h1 {
 .btn {
   flex: 1;
   padding: 10px;
-  border: none;
+  border: 2px solid white; /* Add white border to all buttons */
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
@@ -205,13 +210,21 @@ header h1 {
 .btn:hover { transform: translateY(-2px); }
 
 .btn.secondary {
-  background: var(--secondary);
-  color: #111827;
+  background: var(--delete-color);
+  color: white;
+  filter: brightness(0.8); /* Lower brightness of Clear All button */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn.accent {
-  background: linear-gradient(135deg, #00d4ff, #0062ff);
+  background: linear-gradient(135deg, #9775fa, #4dabf7);
   color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn.secondary {
+  background: var(--delete-color);
+  filter: brightness(0.8); /* Lower brightness of Clear All button */
 }
 
 .item .deleteBtn {

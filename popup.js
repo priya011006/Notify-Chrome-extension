@@ -1,6 +1,28 @@
 // popup.js - robust summarization using chrome.scripting.executeScript
 document.addEventListener("DOMContentLoaded", init);
 
+// Listen for bookmark updates from content scripts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'bookmarkUpdated') {
+    // Update the UI if the popup is open
+    updateBookmarkProgressInUI(message.bookmarkId, message.progress);
+  }
+  return true;
+});
+
+// Helper function to update progress bar in UI without full re-render
+function updateBookmarkProgressInUI(bookmarkId, progress) {
+  const bookmarkItem = document.querySelector(`[data-bookmark-id="${bookmarkId}"]`);
+  if (bookmarkItem) {
+    const progressBar = bookmarkItem.querySelector('.progress-bar');
+    if (progressBar) {
+      progressBar.style.width = `${progress}%`;
+      progressBar.classList.add('updating');
+      setTimeout(() => progressBar.classList.remove('updating'), 1000);
+    }
+  }
+}
+
 async function init() {
   // ---- storage helpers (promise wrappers) ----
   const storageGet = (keys) => new Promise(resolve => chrome.storage.local.get(keys, resolve));
@@ -80,6 +102,17 @@ async function init() {
     });
   });
 
+  // Helper function to check if a bookmark with the same URL already exists
+  function bookmarkExists(url) {
+    return new Promise(resolve => {
+      chrome.storage.local.get({ bookmarks: [] }, (data) => {
+        const bookmarks = data.bookmarks || [];
+        const exists = bookmarks.findIndex(b => b.url.split('#')[0] === url.split('#')[0]);
+        resolve(exists);
+      });
+    });
+  }
+
   renderBookmarks();
 
   // Renders saved items
@@ -95,8 +128,11 @@ async function init() {
       for (const b of bookmarks) {
         const div = document.createElement("div");
         div.className = "item";
+        div.setAttribute("data-bookmark-id", b.id);
 
-        const progress = Math.min(Math.floor((b.scrollY || 0) / 20000 * 100), 100);
+        // Calculate progress based on scroll position relative to document height
+        // Default to 0 if scrollY is not available
+        const progress = b.scrollY ? Math.min(Math.floor(b.scrollY / (b.docHeight || 20000) * 100), 100) : 0;
 
 
         const isCurrent = (await chrome.tabs.query({ active: true, currentWindow: true }))

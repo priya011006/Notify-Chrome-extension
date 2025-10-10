@@ -70,6 +70,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       url: window.location.href,
       title: document.title || '',
       scrollY: getScrollPosition(),
+      docHeight: document.documentElement.scrollHeight - window.innerHeight,
       isYouTube: window.location.href.includes('youtube.com/watch')
     };
     // Send to background to store
@@ -91,12 +92,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   async function initMarker() {
-    const { currentReading } = await chrome.storage.local.get("currentReading");
-    if (!currentReading) return;
-
-    // Relaxed match: check if this page starts with the saved URL
     const currentUrl = window.location.href.split("#")[0];
-    if (!currentUrl.startsWith(currentReading.url.split("#")[0])) return;
+    
+    // First check if we have a currentReading flag set
+    const { currentReading } = await chrome.storage.local.get("currentReading");
+    
+    // Then check if we have a bookmark for this page
+    const { bookmarks } = await chrome.storage.local.get({ bookmarks: [] });
+    const bookmark = bookmarks.find(b => currentUrl.startsWith(b.url.split("#")[0]));
+    
+    // If neither currentReading nor bookmark exists for this page, don't show marker
+    if (!currentReading && !bookmark) return;
+    
+    // If we have currentReading but it doesn't match this page, don't show marker
+    if (currentReading && !currentUrl.startsWith(currentReading.url.split("#")[0])) return;
+    
+    // Use bookmark data if available, otherwise use currentReading
+    const markerData = bookmark || currentReading;
 
     // Avoid adding twice
     if (document.getElementById("vibrant-reading-marker")) return;
@@ -109,34 +121,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       position: "fixed",
       top: "20px",
       right: "20px",
-      background: "#0072ff",
+      background: "var(--progress-gradient, linear-gradient(90deg, #5c7cfa, #63e6be, #ff8787))",
       color: "#fff",
       padding: "10px 14px",
       borderRadius: "10px",
       zIndex: 999999,
       cursor: "pointer",
-      boxShadow: "0 3px 10px rgba(0,0,0,0.3)",
+      boxShadow: "0 3px 10px rgba(0,0,0,0.3), 0 0 0 2px white", // Added white border
       fontFamily: "system-ui, sans-serif",
       fontSize: "14px",
-      transition: "opacity 0.5s ease"
+      transition: "all 0.3s ease"
     });
 
     document.body.appendChild(marker);
 
     marker.addEventListener("click", () => {
-      const y = currentReading.scrollY || 0;
+      const y = markerData.scrollY || 0;
       window.scrollTo({ top: y, behavior: "smooth" });
       marker.textContent = "✅ Scrolled to saved position";
       setTimeout(() => marker.remove(), 3000);
     });
 
-    // Optional auto-hide after 10s
-    setTimeout(() => {
-      if (document.body.contains(marker)) {
-        marker.style.opacity = "0";
-        setTimeout(() => marker.remove(), 1000);
-      }
-    }, 10000);
+    // Add hover effect instead of auto-hiding
+    marker.addEventListener("mouseover", () => {
+      marker.style.transform = "scale(1.05)";
+    });
+    
+    marker.addEventListener("mouseout", () => {
+      marker.style.transform = "scale(1)";
+    });
 
     // Remove flag after showing so it doesn't reappear unnecessarily
     chrome.storage.local.remove("currentReading");
@@ -148,10 +161,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   let tracking = false;
   let trackerBar = null;
   let currentUrl = window.location.href.split("#")[0];
+  let bookmarkId = null;
 
   chrome.storage.local.get({ bookmarks: [] }, (data) => {
     const bookmark = (data.bookmarks || []).find(b => currentUrl.startsWith(b.url.split("#")[0]));
     if (!bookmark) return;
+    
+    bookmarkId = bookmark.id;
 
     // Create small floating tracker
     trackerBar = document.createElement("div");
@@ -175,11 +191,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     Object.assign(fill.style, {
       width: "0%",
       height: "100%",
-      background: "linear-gradient(90deg, #00c6ff, #00ffcc)",
+      background: "var(--progress-gradient, linear-gradient(90deg, #5c7cfa, #63e6be, #ff8787))",
       transition: "width 0.3s ease"
     });
     trackerBar.appendChild(fill);
     document.body.appendChild(trackerBar);
+
+    // Add a small notification element for updates
+    const updateNotification = document.createElement("div");
+    updateNotification.id = "vibrant-update-notification";
+    Object.assign(updateNotification.style, {
+      position: "fixed",
+      bottom: "30px",
+      right: "18px",
+      background: "rgba(0,0,0,0.7)",
+      color: "#fff",
+      padding: "4px 8px",
+      borderRadius: "4px",
+      fontSize: "11px",
+      opacity: "0",
+      transition: "opacity 0.3s ease",
+      zIndex: 999999
+    });
+    updateNotification.textContent = "Progress updated";
+    document.body.appendChild(updateNotification);
 
     tracking = true;
     updateBar();
@@ -195,14 +230,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const progress = Math.min((scrollTop / docHeight) * 100, 100);
       fill.style.width = `${progress}%`;
 
-      if (save) {
-        // Save scroll progress every few seconds
-        throttleSave(progress);
-      }
+      // Always save progress on scroll, not just when requested
+      throttleSave(progress);
     }
 
     let saveTimeout = null;
-    function throttleSave() {
+    function throttleSave(progress) {
       if (saveTimeout) return;
       saveTimeout = setTimeout(() => {
         saveTimeout = null;
@@ -210,11 +243,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const all = d.bookmarks || [];
           const idx = all.findIndex(b => b.url.split("#")[0] === currentUrl);
           if (idx >= 0) {
+            // Update more fields for live updating
             all[idx].scrollY = window.scrollY || 0;
-            chrome.storage.local.set({ bookmarks: all });
+            all[idx].docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            all[idx].updatedAt = Date.now();
+            all[idx].title = document.title || all[idx].title; // Update title if changed
+            
+            chrome.storage.local.set({ bookmarks: all }, () => {
+              // Show update notification briefly
+              updateNotification.style.opacity = "1";
+              setTimeout(() => {
+                updateNotification.style.opacity = "0";
+              }, 1500);
+              
+              // Send message to popup to refresh if open
+              chrome.runtime.sendMessage({ 
+                action: 'bookmarkUpdated', 
+                bookmarkId: bookmarkId,
+                progress: progress
+              });
+            });
           }
         });
-      }, 1500);
+      }, 500); // Reduced to 0.5 seconds for more responsive updates
     }
   });
 })();

@@ -81,14 +81,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'saveBookmark') {
     chrome.storage.local.get({ bookmarks: [] }, (data) => {
       const bookmarks = data.bookmarks || [];
-      const b = { id: getId(), ...msg.payload, createdAt: Date.now() };
-      bookmarks.unshift(b);
-      // keep max 200 entries
-      chrome.storage.local.set({ bookmarks: bookmarks.slice(0, 200) }, () => {
-        // update streak if needed
-        updateStreakOnSave();
-        sendResponse({ success: true, bookmark: b });
-      });
+      // Check if a bookmark with the same URL already exists
+      const existingIndex = bookmarks.findIndex(b => b.url.split('#')[0] === msg.payload.url.split('#')[0]);
+      
+      if (existingIndex >= 0) {
+        // Update existing bookmark with new data
+        const updatedBookmark = {
+          ...bookmarks[existingIndex],
+          ...msg.payload,
+          updatedAt: Date.now()
+        };
+        bookmarks[existingIndex] = updatedBookmark;
+        chrome.storage.local.set({ bookmarks }, () => {
+          updateStreakOnSave();
+          sendResponse({ success: true, bookmark: updatedBookmark, updated: true });
+        });
+      } else {
+        // Create new bookmark
+        const b = { id: getId(), ...msg.payload, createdAt: Date.now() };
+        bookmarks.unshift(b);
+        // keep max 200 entries
+        chrome.storage.local.set({ bookmarks: bookmarks.slice(0, 200) }, () => {
+          // update streak if needed
+          updateStreakOnSave();
+          sendResponse({ success: true, bookmark: b });
+        });
+      }
     });
     return true; // async
   } else if (msg.action === 'getMotivation') {
@@ -210,4 +228,3 @@ const AI = {
     return `${greeting} ${msg} ${streakText}`.trim();
   }
 };
-
