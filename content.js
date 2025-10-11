@@ -269,3 +269,146 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   });
 })();
+
+// === 🌐 Floating Shortcut Widget ===
+(function initFloatingWidget() {
+  if (document.getElementById("vibrant-floating-widget")) return;
+
+  const widget = document.createElement("div");
+  widget.id = "vibrant-floating-widget";
+  widget.innerHTML = `
+    <div class="vibrant-btn" title="Vibrant Tools">⚡</div>
+    <div class="vibrant-panel hidden">
+      <button id="vibrant-save">💾 Save</button>
+      <button id="vibrant-summary">🧠 Summarize</button>
+      <button id="vibrant-open">📘 Bookmarks</button>
+      <button id="vibrant-hide">❌</button>
+    </div>
+  `;
+
+  Object.assign(widget.style, {
+    position: "fixed",
+    bottom: "30px",
+    right: "30px",
+    zIndex: 999999,
+    fontFamily: "system-ui, sans-serif",
+  });
+
+  document.body.appendChild(widget);
+
+  const btn = widget.querySelector(".vibrant-btn");
+  const panel = widget.querySelector(".vibrant-panel");
+
+  // --- Button & Panel styling ---
+  Object.assign(btn.style, {
+    width: "48px",
+    height: "48px",
+    background: "linear-gradient(135deg,#5c7cfa,#63e6be,#ff8787)",
+    borderRadius: "50%",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+    color: "#fff",
+    fontSize: "22px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    transition: "transform 0.3s ease",
+  });
+  btn.addEventListener("mouseover", () => (btn.style.transform = "scale(1.1)"));
+  btn.addEventListener("mouseout", () => (btn.style.transform = "scale(1)"));
+
+  Object.assign(panel.style, {
+    position: "absolute",
+    bottom: "60px",
+    right: "0",
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    background: "rgba(20,20,30,0.9)",
+    padding: "8px",
+    borderRadius: "10px",
+    backdropFilter: "blur(8px)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+    transition: "opacity 0.3s ease, transform 0.3s ease",
+  });
+
+  const panelBtns = panel.querySelectorAll("button");
+  panelBtns.forEach(b => {
+    Object.assign(b.style, {
+      border: "none",
+      background: "linear-gradient(135deg,#5c7cfa,#63e6be,#ff8787)",
+      color: "#fff",
+      padding: "6px 10px",
+      borderRadius: "6px",
+      cursor: "pointer",
+      fontSize: "13px",
+      transition: "transform 0.2s ease",
+    });
+    b.addEventListener("mouseover", () => (b.style.transform = "scale(1.05)"));
+    b.addEventListener("mouseout", () => (b.style.transform = "scale(1)"));
+  });
+
+  // --- Toggle panel ---
+  btn.addEventListener("click", () => {
+    const hidden = panel.classList.toggle("hidden");
+    panel.style.opacity = hidden ? "0" : "1";
+    panel.style.transform = hidden ? "translateY(10px)" : "translateY(0)";
+  });
+
+  // --- Button actions ---
+  widget.querySelector("#vibrant-save").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "saveBookmark", payload: { 
+      url: window.location.href, 
+      title: document.title, 
+      scrollY: window.scrollY, 
+      docHeight: document.documentElement.scrollHeight - window.innerHeight 
+    }}, () => {
+      alert("✅ Progress saved!");
+    });
+  });
+
+  widget.querySelector("#vibrant-summary").addEventListener("click", async () => {
+    alert("⏳ Summarizing this page…");
+    const text = document.body.innerText.slice(0, 4000);
+    const sentences = text.split(/[.!?]/).filter(s => s.trim().length > 40);
+    const short = sentences.slice(0, 3).join(". ") + ".";
+    alert("🧠 Summary:\n" + short);
+  });
+
+  widget.querySelector("#vibrant-open").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "restoreAll" });
+  });
+
+  widget.querySelector("#vibrant-hide").addEventListener("click", () => {
+    widget.remove();
+  });
+
+  // --- Make draggable ---
+  makeDraggable(widget, btn);
+})();
+
+// Drag helper
+function makeDraggable(widget, handle) {
+  let offsetX, offsetY, dragging = false;
+  handle.addEventListener("mousedown", (e) => {
+    dragging = true;
+    offsetX = e.clientX - widget.getBoundingClientRect().left;
+    offsetY = e.clientY - widget.getBoundingClientRect().top;
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", stopDrag);
+  });
+
+  function onMove(e) {
+    if (!dragging) return;
+    widget.style.left = e.clientX - offsetX + "px";
+    widget.style.top = e.clientY - offsetY + "px";
+    widget.style.bottom = "auto";
+    widget.style.right = "auto";
+  }
+
+  function stopDrag() {
+    dragging = false;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", stopDrag);
+  }
+}

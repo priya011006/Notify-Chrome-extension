@@ -233,3 +233,15 @@ header h1 {
 .item .deleteBtn:hover {
   background: #dc2626 !important;
 }
+
+#vibrant-floating-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+}
+.vibrant-panel.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+}
