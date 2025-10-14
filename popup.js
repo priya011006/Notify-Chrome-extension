@@ -80,7 +80,10 @@ async function init() {
   const openCalendarBtn = document.getElementById("openCalendar");
   const calendarModal = document.getElementById("calendarModal");
   const closeCalendar = document.getElementById("closeCalendar");
-  const summarizeCurrentBtn = document.getElementById("summarizeCurrent");
+  const summarizeCurrentBtn = null;
+  const summarizeCurrentActionBtn = null;
+  const sortBy = document.getElementById("sortBy");
+  const viewToggle = document.getElementById("viewToggle");
 
   restoreBtn?.addEventListener("click", () => chrome.runtime.sendMessage({ action: "restoreAll" }));
   clearBtn?.addEventListener("click", () => {
@@ -123,39 +126,7 @@ async function init() {
     }
   });
 
-  // Universal summarizer for current tab (article/video/audio)
-  summarizeCurrentBtn?.addEventListener("click", async () => {
-    summarizeCurrentBtn.disabled = true;
-    summarizeCurrentBtn.textContent = "⏳";
-    try {
-      const [tab] = await chromeTabsQueryPromise({ active: true, currentWindow: true });
-      if (!tab?.id) throw new Error("No active tab");
-
-      // Ask content script for rich content extraction (including captions/audio fallback)
-      const content = await new Promise((resolve) => {
-        chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, (resp) => resolve(resp?.content || ""));
-      });
-      if (!content || content.length < 50) throw new Error("Content too short");
-      const summary = await summarizeWithStrongFallback(content);
-      alert("🧠 Summary:\n\n" + summary);
-    } catch (e) {
-      console.warn("Summarize current failed", e);
-      try {
-        // Last-resort: local summary on failure
-        const [tab] = await chromeTabsQueryPromise({ active: true, currentWindow: true });
-        const content = await new Promise((resolve) => {
-          chrome.tabs.sendMessage(tab?.id, { action: "extractContent" }, (resp) => resolve(resp?.content || ""));
-        });
-        const fallback = makeSummary(content || document.body?.innerText || "", 5);
-        alert("🧠 Summary (fallback):\n\n" + fallback);
-      } catch (_) {
-        alert("Could not summarize current tab.");
-      }
-    } finally {
-      summarizeCurrentBtn.disabled = false;
-      summarizeCurrentBtn.textContent = "🧠";
-    }
-  });
+  // Summarize current removed
 
   // Helper function to check if a bookmark with the same URL already exists
   function bookmarkExists(url) {
@@ -173,7 +144,12 @@ async function init() {
   // Renders saved items
   function renderBookmarks() {
     chrome.storage.local.get({ bookmarks: [] }, async (data) => {
-      const bookmarks = data.bookmarks || [];
+      let bookmarks = data.bookmarks || [];
+
+      // Sorting
+      const pref = (await storageGet({ sortBy: 'date_desc' })).sortBy || 'date_desc';
+      if (sortBy) sortBy.value = pref;
+      bookmarks = sortBookmarks(bookmarks, pref);
       if (bookmarks.length === 0) {
         listEl.innerHTML = `<p>No saved pages yet. Click “+ Add Current Page” to start!</p>`;
         return;
@@ -182,7 +158,8 @@ async function init() {
       listEl.innerHTML = "";
       for (const b of bookmarks) {
         const div = document.createElement("div");
-        div.className = "item";
+        const viewPref = (await storageGet({ view: 'list' })).view || 'list';
+        div.className = viewPref === 'grid' ? "item item-grid" : "item";
         div.setAttribute("data-bookmark-id", b.id);
 
         // Calculate progress
@@ -199,6 +176,7 @@ async function init() {
         const isCurrent = (await chrome.tabs.query({ active: true, currentWindow: true }))
   .some(t => t.url && t.url.startsWith(b.url.split("#")[0]));
 
+const favicon = `https://www.google.com/s2/favicons?domain=${new URL(b.url).hostname}&sz=32`;
 div.innerHTML = `
   <h3>${escapeHtml(b.title || "Untitled Page")}</h3>
   <small>${new Date(b.createdAt).toLocaleString()}</small>
@@ -209,6 +187,8 @@ div.innerHTML = `
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button class="openBtn">Open</button>
             <button class="summaryBtn">Summarize</button>
+            <button class="renameBtn">Rename</button>
+            <button class="pinBtn" title="Pin">${b.pinned ? '⭐' : '☆'}</button>
             <button class="deleteBtn" style="background:#ef4444">Delete</button>
           </div>
           <div class="summaryText" style="margin-top:8px;font-size:13px;color:var(--text-color);display:none;"></div>
@@ -217,6 +197,21 @@ div.innerHTML = `
         const openBtn = div.querySelector(".openBtn");
         const summaryBtn = div.querySelector(".summaryBtn");
         const deleteBtn = div.querySelector(".deleteBtn");
+        const renameBtn = div.querySelector(".renameBtn");
+        const pinBtn = div.querySelector(".pinBtn");
+        renameBtn.addEventListener("click", () => {
+          const newTitle = prompt("Rename bookmark:", b.title || "");
+          if (newTitle === null) return;
+          const title = newTitle.trim();
+          chrome.storage.local.get({ bookmarks: [] }, (d) => {
+            const all = d.bookmarks || [];
+            const idx = all.findIndex(x => x.id === b.id);
+            if (idx >= 0) {
+              all[idx].title = title || all[idx].title;
+              chrome.storage.local.set({ bookmarks: all }, () => renderBookmarks());
+            }
+          });
+        });
         const summaryText = div.querySelector(".summaryText");
 
         openBtn.addEventListener("click", async () => {
@@ -241,6 +236,7 @@ div.innerHTML = `
         });
 
         deleteBtn.addEventListener("click", () => deleteBookmark(b.id));
+        pinBtn.addEventListener("click", () => togglePin(b.id));
         listEl.appendChild(div);
       }
     });
@@ -253,6 +249,45 @@ div.innerHTML = `
       chrome.storage.local.set({ bookmarks: updated }, () => renderBookmarks());
     });
   }
+
+  function togglePin(id) {
+    chrome.storage.local.get({ bookmarks: [] }, (data) => {
+      const all = data.bookmarks || [];
+      const idx = all.findIndex(b => b.id === id);
+      if (idx >= 0) {
+        all[idx].pinned = !all[idx].pinned;
+        chrome.storage.local.set({ bookmarks: all }, () => renderBookmarks());
+      }
+    });
+  }
+
+  function sortBookmarks(list, mode) {
+    const copy = [...list];
+    // Pinned first always
+    copy.sort((a, b) => (b.pinned === true) - (a.pinned === true));
+    if (mode === 'title_asc') {
+      copy.sort((a, b) => (b.pinned === true) - (a.pinned === true) || (a.title || '').localeCompare(b.title || ''));
+    } else if (mode === 'progress_desc') {
+      const pct = (x) => x && x.isYouTube && x.duration > 0 ? (x.currentTime || 0) / x.duration : (x.scrollY || 0) / (x.docHeight || 1);
+      copy.sort((a, b) => (b.pinned === true) - (a.pinned === true) || (pct(b) - pct(a)));
+    } else {
+      // date_desc
+      copy.sort((a, b) => (b.pinned === true) - (a.pinned === true) || (b.createdAt || 0) - (a.createdAt || 0));
+    }
+    return copy;
+  }
+
+  // Toolbar listeners
+  sortBy?.addEventListener('change', async () => {
+    await storageSet({ sortBy: sortBy.value });
+    renderBookmarks();
+  });
+  viewToggle?.addEventListener('click', async () => {
+    const pref = (await storageGet({ view: 'list' })).view || 'list';
+    const next = pref === 'list' ? 'grid' : 'list';
+    await storageSet({ view: next });
+    renderBookmarks();
+  });
 
   // Summarize a bookmark: open tab if needed, wait for load, execute extraction, close tab if created
   async function summarizeBookmark(bookmark) {

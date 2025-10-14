@@ -14,7 +14,6 @@
     </div>
     <div class="header-right">
       <button id="openCalendar" class="icon-btn" aria-label="Open calendar" title="Open calendar">📅</button>
-      <button id="summarizeCurrent" class="icon-btn" aria-label="Summarize current tab" title="Summarize current tab">🧠</button>
       <!-- Top-right theme toggle -->
       <button id="themeToggle" class="theme-toggle" aria-label="Toggle light/dark" title="Toggle light/dark mode" aria-pressed="false">
         <span class="icon">🌞</span>
@@ -23,10 +22,25 @@
   </header>
 
   <div class="container">
+    <section class="search-section">
+      <input id="searchBookmarks" type="text" placeholder="🔍 Search bookmarks..." />
+    </section>
     <div class="actions">
       <button id="addCurrent" class="btn accent">+ Add Current Page</button>
       <button id="restoreAll" class="btn">Restore All</button>
       <button id="clearAll" class="btn secondary">Clear All</button>
+    </div>
+
+    <section class="toolbar card">
+      <div class="row">
+        <label for="sortBy">Sort by</label>
+        <select id="sortBy">
+          <option value="date_desc">Recent</option>
+          <option value="title_asc">Title (A→Z)</option>
+          <option value="progress_desc">Progress</option>
+        </select>
+        <button id="viewToggle" class="btn">Toggle View</button>
+      </div>
     </div>
 
     <section id="bookmarks" class="card">
@@ -34,10 +48,7 @@
       <div id="bookmarkList" class="list">Loading saved content…</div>
     </section>
 
-    <!-- new -->
-     <section class="search-section">
-  <input id="searchBookmarks" type="text" placeholder="🔍 Search bookmarks..." />
-</section>
+    
 
 
 
