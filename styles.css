@@ -111,6 +111,8 @@ body.dark .theme-toggle { color: var(--accent); }
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 header h1 {
@@ -136,6 +138,12 @@ header h1 {
 .list {
   max-height: 260px;
   overflow-y: auto;
+}
+
+.list.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 /* === Modal for Calendar === */

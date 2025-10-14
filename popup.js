@@ -84,6 +84,8 @@ async function init() {
   const summarizeCurrentActionBtn = null;
   const sortBy = document.getElementById("sortBy");
   const viewToggle = document.getElementById("viewToggle");
+  const pinnedOnly = document.getElementById("pinnedOnly");
+  const quickStats = document.getElementById("quickStats");
 
   restoreBtn?.addEventListener("click", () => chrome.runtime.sendMessage({ action: "restoreAll" }));
   clearBtn?.addEventListener("click", () => {
@@ -146,6 +148,11 @@ async function init() {
     chrome.storage.local.get({ bookmarks: [] }, async (data) => {
       let bookmarks = data.bookmarks || [];
 
+      // Pinned filter
+      const pinnedPref = (await storageGet({ pinnedOnly: false })).pinnedOnly || false;
+      if (pinnedOnly) pinnedOnly.checked = !!pinnedPref;
+      if (pinnedPref) bookmarks = bookmarks.filter(b => b.pinned);
+
       // Sorting
       const pref = (await storageGet({ sortBy: 'date_desc' })).sortBy || 'date_desc';
       if (sortBy) sortBy.value = pref;
@@ -155,10 +162,20 @@ async function init() {
         return;
       }
 
+      // Apply view preference to list container
+      const viewPref = (await storageGet({ view: 'list' })).view || 'list';
+      listEl.classList.toggle('grid', viewPref === 'grid');
       listEl.innerHTML = "";
+
+      // Quick stats
+      if (quickStats) {
+        const total = (data.bookmarks || []).length;
+        const pinned = (data.bookmarks || []).filter(b => b.pinned).length;
+        const avg = Math.round(((data.bookmarks || []).reduce((a, b) => a + ((b.isYouTube && b.duration > 0) ? ((b.currentTime||0)/(b.duration)) : ((b.scrollY||0)/(b.docHeight||1))), 0) / Math.max(total,1)) * 100);
+        quickStats.textContent = `Total: ${total} · Pinned: ${pinned} · Avg progress: ${isFinite(avg)?avg:0}%`;
+      }
       for (const b of bookmarks) {
         const div = document.createElement("div");
-        const viewPref = (await storageGet({ view: 'list' })).view || 'list';
         div.className = viewPref === 'grid' ? "item item-grid" : "item";
         div.setAttribute("data-bookmark-id", b.id);
 
@@ -286,6 +303,10 @@ div.innerHTML = `
     const pref = (await storageGet({ view: 'list' })).view || 'list';
     const next = pref === 'list' ? 'grid' : 'list';
     await storageSet({ view: next });
+    renderBookmarks();
+  });
+  pinnedOnly?.addEventListener('change', async () => {
+    await storageSet({ pinnedOnly: pinnedOnly.checked });
     renderBookmarks();
   });
 
