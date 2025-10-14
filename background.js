@@ -43,6 +43,35 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create('checkScheduledTasks', { periodInMinutes: 60 });
 });
 
+// Re-register menus and alarms on startup (MV3 SW is short-lived)
+chrome.runtime.onStartup.addListener(() => {
+  // Recreate context menus idempotently
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: 'save-progress', title: 'Save progress (Vibrant)', contexts: ['page', 'video', 'selection'] });
+    chrome.contextMenus.create({ id: 'summarize-page', title: 'Summarize page (Vibrant)', contexts: ['page'] });
+  });
+
+  // Ensure alarms exist
+  chrome.alarms.get('dailyReminder', (a) => {
+    if (!a) chrome.alarms.create('dailyReminder', { periodInMinutes: 24 * 60 });
+  });
+  chrome.alarms.get('checkScheduledTasks', (a) => {
+    if (!a) chrome.alarms.create('checkScheduledTasks', { periodInMinutes: 60 });
+  });
+
+  // Recreate task alarms
+  chrome.storage.local.get({ scheduledTasks: [] }, (data) => {
+    const tasks = data.scheduledTasks || [];
+    tasks.forEach(task => {
+      const when = new Date(task.date + 'T09:00:00');
+      const ms = when.getTime();
+      if (!task.completed && !isNaN(ms) && ms > Date.now()) {
+        chrome.alarms.create(`task:${task.id}`, { when: ms });
+      }
+    });
+  });
+});
+
 // Context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'save-progress') {
@@ -411,13 +440,8 @@ function showStartupSummary() {
       summaryContent = 'Welcome to Vibrant Progress Tracker! 🎉\n\nStart by saving your first page to track your reading progress.';
     } else {
       const recentBookmarks = bookmarks.slice(0, 3);
-      const totalProgress = Math.round(
-        bookmarks.reduce((sum, b) => sum + (b.scrollY / (b.docHeight || 1)), 0) / bookmarks.length * 100
-      );
-      
       summaryContent = `📊 Your Progress Summary\n\n`;
       summaryContent += `📚 Total Saved Pages: ${bookmarks.length}\n`;
-      summaryContent += `📈 Average Progress: ${totalProgress}%\n`;
       summaryContent += `🔥 Current Streak: ${streak} day${streak === 1 ? '' : 's'}\n\n`;
       
       if (recentBookmarks.length > 0) {

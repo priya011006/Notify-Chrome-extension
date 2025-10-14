@@ -78,6 +78,8 @@ async function init() {
   const clearBtn = document.getElementById("clearAll");
   const addBtn = document.getElementById("addCurrent");
   const openCalendarBtn = document.getElementById("openCalendar");
+  const openDashboardBtn = document.getElementById("openDashboard");
+  const openAssistantBtn = document.getElementById("openAssistant");
   const calendarModal = document.getElementById("calendarModal");
   const closeCalendar = document.getElementById("closeCalendar");
   const summarizeCurrentBtn = null;
@@ -86,6 +88,22 @@ async function init() {
   const viewToggle = document.getElementById("viewToggle");
   const pinnedOnly = document.getElementById("pinnedOnly");
   const quickStats = document.getElementById("quickStats");
+  // Assistant UI refs
+  // Removed inline assistant; now modal-triggered via header icon (setup later)
+  const modeSelect = null;
+  const summaryStyleWrap = null;
+  const rewriteToneWrap = null;
+  const translateLangWrap = null;
+  const templateSelectWrap = null;
+  const summaryStyleSel = null;
+  const rewriteToneSel = null;
+  const translateLangInput = null;
+  const templateSelect = null;
+  const assistantInput = null;
+  const assistantRun = null;
+  const assistantUseCurrent = null;
+  const assistantOutput = null;
+  const ASSISTANT_CACHE_KEY = 'assistantCacheV1';
 
   restoreBtn?.addEventListener("click", () => chrome.runtime.sendMessage({ action: "restoreAll" }));
   clearBtn?.addEventListener("click", () => {
@@ -120,6 +138,85 @@ async function init() {
   closeCalendar?.addEventListener("click", () => {
     calendarModal?.classList.remove("open");
     calendarModal?.setAttribute("aria-hidden", "true");
+  });
+
+  // Assistant modal open/close
+  const assistantModal = document.getElementById('assistantModal');
+  const closeAssistant = document.getElementById('closeAssistant');
+  const assistantBookmarkSel = document.getElementById('assistantBookmark');
+  const assistantLoadBookmark = document.getElementById('assistantLoadBookmark');
+  const assistantIntent = document.getElementById('assistantIntent');
+  openAssistantBtn?.addEventListener("click", () => {
+    if (assistantModal) {
+      assistantModal.classList.add('open');
+      assistantModal.setAttribute('aria-hidden','false');
+      const ta = assistantModal.querySelector('#assistantInput');
+      setTimeout(() => ta?.focus(), 100);
+    }
+  });
+  closeAssistant?.addEventListener('click', () => {
+    if (assistantModal) {
+      assistantModal.classList.remove('open');
+      assistantModal.setAttribute('aria-hidden','true');
+    }
+  });
+  assistantModal?.addEventListener('click', (e) => {
+    if (e.target === assistantModal) {
+      assistantModal.classList.remove('open');
+      assistantModal.setAttribute('aria-hidden','true');
+    }
+  });
+
+  // Populate bookmark chooser on open
+  openAssistantBtn?.addEventListener('click', () => {
+    chrome.storage.local.get({ bookmarks: [] }, (data) => {
+      if (!assistantBookmarkSel) return;
+      assistantBookmarkSel.innerHTML = '';
+      (data.bookmarks||[]).forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = b.title || b.url;
+        assistantBookmarkSel.appendChild(opt);
+      });
+    });
+  });
+
+  assistantLoadBookmark?.addEventListener('click', () => {
+    const id = assistantBookmarkSel?.value;
+    if (!id) return;
+    chrome.storage.local.get({ bookmarks: [] }, async (data) => {
+      const b = (data.bookmarks||[]).find(x => String(x.id) === String(id));
+      if (!b) return;
+      try {
+        const content = await extractBookmarkText(b);
+        if (assistantInput) assistantInput.value = content || '';
+      } catch {
+        if (assistantInput) assistantInput.value = '';
+      }
+    });
+  });
+
+  // Dashboard modal open/close
+  const dashboardModal = document.getElementById('dashboardModal');
+  const closeDashboard = document.getElementById('closeDashboard');
+  openDashboardBtn?.addEventListener('click', () => {
+    if (dashboardModal) {
+      dashboardModal.classList.add('open');
+      dashboardModal.setAttribute('aria-hidden','false');
+      initDashboard();
+    }
+  });
+  closeDashboard?.addEventListener('click', () => {
+    if (dashboardModal) {
+      dashboardModal.classList.remove('open');
+      dashboardModal.setAttribute('aria-hidden','true');
+    }
+  });
+  dashboardModal?.addEventListener('click', (e) => {
+    if (e.target === dashboardModal) {
+      dashboardModal.classList.remove('open');
+      dashboardModal.setAttribute('aria-hidden','true');
+    }
   });
   calendarModal?.addEventListener("click", (e) => {
     if (e.target === calendarModal) {
@@ -162,17 +259,24 @@ async function init() {
         return;
       }
 
-      // Apply view preference to list container
+      // Apply view preference to list container and progress filters
       const viewPref = (await storageGet({ view: 'list' })).view || 'list';
       listEl.classList.toggle('grid', viewPref === 'grid');
       listEl.innerHTML = "";
 
-      // Quick stats
+      const filterPref = (await storageGet({ progressFilter: 'all' })).progressFilter || 'all';
+      if (filterPref !== 'all') {
+        const pct = (x) => x && x.isYouTube && x.duration > 0 ? (x.currentTime || 0) / x.duration : (x.scrollY || 0) / (x.docHeight || 1);
+        if (filterPref === 'high') bookmarks = bookmarks.filter(b => pct(b) >= 0.7);
+        if (filterPref === 'mid') bookmarks = bookmarks.filter(b => pct(b) >= 0.3 && pct(b) < 0.7);
+        if (filterPref === 'low') bookmarks = bookmarks.filter(b => pct(b) < 0.3);
+      }
+
+      // Quick stats (without average progress)
       if (quickStats) {
         const total = (data.bookmarks || []).length;
         const pinned = (data.bookmarks || []).filter(b => b.pinned).length;
-        const avg = Math.round(((data.bookmarks || []).reduce((a, b) => a + ((b.isYouTube && b.duration > 0) ? ((b.currentTime||0)/(b.duration)) : ((b.scrollY||0)/(b.docHeight||1))), 0) / Math.max(total,1)) * 100);
-        quickStats.textContent = `Total: ${total} · Pinned: ${pinned} · Avg progress: ${isFinite(avg)?avg:0}%`;
+        quickStats.textContent = `Total: ${total} · Pinned: ${pinned}`;
       }
       for (const b of bookmarks) {
         const div = document.createElement("div");
@@ -203,19 +307,22 @@ div.innerHTML = `
 
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button class="openBtn">Open</button>
-            <button class="summaryBtn">Summarize</button>
+            <button class="assistantOpenBtn">Assistant</button>
             <button class="renameBtn">Rename</button>
             <button class="pinBtn" title="Pin">${b.pinned ? '⭐' : '☆'}</button>
             <button class="deleteBtn" style="background:#ef4444">Delete</button>
           </div>
-          <div class="summaryText" style="margin-top:8px;font-size:13px;color:var(--text-color);display:none;"></div>
+          <div class="summaryText" style="display:none"></div>
         `;
 
         const openBtn = div.querySelector(".openBtn");
-        const summaryBtn = div.querySelector(".summaryBtn");
+        const summaryBtn = null;
         const deleteBtn = div.querySelector(".deleteBtn");
         const renameBtn = div.querySelector(".renameBtn");
         const pinBtn = div.querySelector(".pinBtn");
+        const assistantOpenBtn = div.querySelector('.assistantOpenBtn');
+        const itemAssistantBtn = null;
+        const itemPanel = null;
         renameBtn.addEventListener("click", () => {
           const newTitle = prompt("Rename bookmark:", b.title || "");
           if (newTitle === null) return;
@@ -236,26 +343,292 @@ div.innerHTML = `
           chrome.storage.local.set({ currentReading: { url: b.url, scrollY: b.scrollY } });
         });
 
-        summaryBtn.addEventListener("click", async () => {
-          summaryBtn.textContent = "Summarizing...";
-          summaryBtn.disabled = true;
+        // Per-item Assistant: open modal and preload bookmark content
+        assistantOpenBtn?.addEventListener('click', async () => {
+          const m = document.getElementById('assistantModal');
+          if (!m) return;
+          m.classList.add('open');
+          m.setAttribute('aria-hidden','false');
+          const ta = m.querySelector('#assistantInput');
           try {
-            const summary = await summarizeBookmark(b);
-            summaryText.style.display = "block";
-            summaryText.textContent = summary;
-          } catch (e) {
-            summaryText.style.display = "block";
-            summaryText.textContent = "Could not summarize this page.";
-            console.warn("Summary failed:", e);
+            const content = await extractBookmarkText(b);
+            if (ta) ta.value = content || '';
+          } catch {
+            if (ta) ta.value = '';
           }
-          summaryBtn.textContent = "Summarize";
-          summaryBtn.disabled = false;
+          setTimeout(() => ta?.focus(), 100);
         });
 
         deleteBtn.addEventListener("click", () => deleteBookmark(b.id));
         pinBtn.addEventListener("click", () => togglePin(b.id));
         listEl.appendChild(div);
       }
+    });
+  }
+
+  // === Assistant UI logic ===
+  function updateModeOptions() {
+    const mode = modeSelect?.value || 'summarize';
+    if (!summaryStyleWrap || !rewriteToneWrap || !translateLangWrap || !templateSelectWrap) return;
+    summaryStyleWrap.style.display = mode === 'summarize' ? '' : 'none';
+    rewriteToneWrap.style.display = mode === 'rewrite' ? '' : 'none';
+    translateLangWrap.style.display = mode === 'translate' ? '' : 'none';
+    templateSelectWrap.style.display = mode === 'template' ? '' : 'none';
+  }
+  modeSelect?.addEventListener('change', updateModeOptions);
+  updateModeOptions();
+
+  assistantUseCurrent?.addEventListener('click', async () => {
+    assistantUseCurrent.disabled = true;
+    assistantUseCurrent.textContent = 'Extracting...';
+    try {
+      const tab = await chromeTabsQueryPromise({ active: true, currentWindow: true }).then(ts => ts[0]);
+      if (!tab) throw new Error('No active tab');
+      if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        assistantInput.value = '';
+        renderAssistantOutput('Cannot extract from internal browser pages. Paste text manually.');
+        return;
+      }
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          function largestTextSnippet(limit = 6000) {
+            try {
+              const selectors = ['article','main','[role="main"]','section'];
+              let best = null, len = 0;
+              for (const s of selectors) {
+                const el = document.querySelector(s);
+                if (el) {
+                  const t = (el.innerText||'').replace(/\s+/g,' ').trim();
+                  if (t.length > len) { best = t; len = t.length; }
+                }
+              }
+              if (!best) {
+                const candidates = Array.from(document.querySelectorAll('p, div'));
+                for (const c of candidates) {
+                  const t = (c.innerText||'').replace(/\s+/g,' ').trim();
+                  if (t.length > len) { best = t; len = t.length; }
+                }
+              }
+              let text = best || document.body?.innerText || document.documentElement?.innerText || '';
+              text = text.replace(/\s+/g,' ').trim();
+              return text.slice(0, limit);
+            } catch { return ''; }
+          }
+          return largestTextSnippet(6000);
+        }
+      });
+      const content = results?.[0]?.result || '';
+      if (!content || content.length < 40) {
+        renderAssistantOutput('This page appears to have very little extractable text. Try selecting and pasting text instead.');
+      }
+      assistantInput.value = content;
+          } catch (e) {
+      assistantInput.value = '';
+      renderAssistantOutput('Extraction failed due to site restrictions or dynamic content. Paste text manually.');
+    } finally {
+      assistantUseCurrent.disabled = false;
+      assistantUseCurrent.textContent = 'Use Current Page';
+    }
+  });
+
+  assistantRun?.addEventListener('click', async () => {
+    const mode = modeSelect?.value || 'summarize';
+    const text = (assistantInput?.value || '').trim();
+    if (!text) {
+      assistantOutput.textContent = 'Please paste text or use Current Page.';
+      return;
+    }
+    // Try show cached instantly
+    tryShowCachedResult(mode, text);
+    assistantRun.disabled = true;
+    assistantRun.textContent = 'Running...';
+    try {
+      const t0 = performance.now();
+      let out = '';
+      if (mode === 'summarize') {
+        const style = summaryStyleSel?.value || 'bullet';
+        const intent = assistantIntent?.value || 'default';
+        let base = await summarizeByStyleWithFallback(text, style);
+        if (intent === 'study') {
+          base = 'Study Notes\n\n' + base;
+        } else if (intent === 'share') {
+          base = 'Post Draft\n\n' + base;
+        } else if (intent === 'todo') {
+          // schedule a task for tomorrow
+          const tomorrow = new Date(Date.now() + 24*60*60*1000);
+          const dateStr = tomorrow.toISOString().slice(0,10);
+          const task = { id: 'task-' + Date.now(), title: 'Finish reading: ' + (assistantBookmarkSel?.selectedOptions?.[0]?.textContent || 'Saved page'), date: dateStr, createdAt: Date.now(), completed: false };
+          chrome.storage.local.get({ scheduledTasks: [] }, (d) => {
+            const arr = d.scheduledTasks || [];
+            arr.push(task);
+            chrome.storage.local.set({ scheduledTasks: arr });
+          });
+          base = base + `\n\n— Task scheduled for ${dateStr}`;
+        }
+        out = base;
+      } else if (mode === 'rewrite') {
+        const tone = rewriteToneSel?.value || 'formal';
+        out = await rewriteWithTone(text, tone);
+      } else if (mode === 'translate') {
+        const lang = (translateLangInput?.value || '').trim() || 'Spanish';
+        out = await translateText(text, lang);
+      } else if (mode === 'template') {
+        const tpl = templateSelect?.value || 'linkedin';
+        out = await runTemplate(tpl, text);
+      }
+      const t1 = performance.now();
+      const latency = ((t1 - t0) / 1000).toFixed(2);
+      await saveCache(mode, text, out, Number(latency));
+      const avgLatency = await updateAndGetAvgLatency(Number(latency));
+      renderAssistantOutput(out + `\n\n— Generated in ${latency}s (avg ${avgLatency.toFixed(2)}s)`);
+    } catch (e) {
+      renderAssistantOutput('Operation failed. Showing best-effort fallback.');
+    } finally {
+      assistantRun.disabled = false;
+      assistantRun.textContent = 'Run';
+    }
+  });
+
+  function renderAssistantOutput(content) {
+    if (!assistantOutput) return;
+    assistantOutput.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.style.margin = '0';
+    pre.textContent = content;
+    assistantOutput.appendChild(pre);
+  }
+
+  async function summarizeByStyle(text, style) {
+    const clean = (text||'').replace(/\s+/g,' ').trim();
+    if (style === 'bullet') {
+      const summary = makeSummaryAdvanced(clean, 6);
+      return '- ' + summary.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0,6).join('\n- ');
+    }
+    if (style === 'short') {
+      return makeSummary(clean, 2);
+    }
+    if (style === 'long') {
+      return makeSummaryAdvanced(clean, 8);
+    }
+    if (style === 'takeaways') {
+      const summary = makeSummaryAdvanced(clean, 5);
+      const points = summary.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0,5);
+      return 'Key takeaways:\n- ' + points.join('\n- ');
+    }
+    return makeSummaryAdvanced(clean, 5);
+  }
+
+  async function summarizeByStyleWithFallback(text, style) {
+    // Fallback order: simple extractive -> advanced -> echo guidance
+    const clean = (text||'').replace(/\s+/g,' ').trim();
+    if (clean.length < 40) {
+      return 'Not enough text to summarize. Please provide more content.';
+    }
+    try {
+      return await summarizeByStyle(clean, style);
+    } catch {
+      try {
+        return makeSummary(clean, 3);
+      } catch {
+        return 'Unable to summarize due to content or page restrictions.';
+      }
+    }
+  }
+
+  async function rewriteWithTone(text, tone) {
+    const prefix = {
+      formal: 'Rewrite the following text in a professional, formal tone with improved clarity:',
+      casual: 'Rewrite the following text in a friendly, casual tone while keeping meaning:',
+      concise: 'Rewrite the following text to be concise and clear, removing redundancy:',
+      creative: 'Rewrite the following text with a creative, engaging tone while preserving meaning:'
+    }[tone] || 'Rewrite the following text clearly:';
+    // Local heuristic rewrite: keep simple to avoid external API
+    const base = (text||'').trim();
+    if (!base) return '';
+    return `${prefix}\n\n${base}`;
+  }
+
+  async function translateText(text, targetLang) {
+    // Stub for translation; in future, hook external API.
+    return `Translate to ${targetLang}:\n\n${text}`;
+  }
+
+  async function runTemplate(template, text) {
+    const clean = (text||'').trim();
+    if (template === 'linkedin') {
+      return [
+        'LinkedIn Post:',
+        '',
+        'Hook: [Compelling one-liner]',
+        `Insight: ${makeSummary(clean, 2)}`,
+        'Value: 2-3 bullet takeaways',
+        'CTA: What do you think? #hashtag'
+      ].join('\n');
+    }
+    if (template === 'studynotes') {
+      return [
+        'Study Notes',
+        '',
+        'Summary:',
+        makeSummaryAdvanced(clean, 6),
+        '',
+        'Key Terms:',
+        '- Term 1: definition',
+        '- Term 2: definition',
+        '',
+        'Questions:',
+        '- Q1',
+        '- Q2'
+      ].join('\n');
+    }
+    return makeSummaryAdvanced(clean, 5);
+  }
+
+  // === Caching helpers ===
+  function stableKey(input) {
+    // Use first 200 chars + mode + options as key basis
+    return input.slice(0, 200);
+  }
+
+  async function saveCache(mode, text, output, latencySeconds) {
+    const key = `${mode}::${stableKey(text)}`;
+    const record = { key, mode, inputHead: stableKey(text), output, latencySeconds, ts: Date.now() };
+    return new Promise((resolve) => {
+      chrome.storage.local.get({ [ASSISTANT_CACHE_KEY]: [] }, (data) => {
+        const arr = data[ASSISTANT_CACHE_KEY] || [];
+        const filtered = arr.filter(x => x.key !== key).slice(-49); // keep last 49
+        filtered.push(record);
+        chrome.storage.local.set({ [ASSISTANT_CACHE_KEY]: filtered }, resolve);
+      });
+    });
+  }
+
+  function tryShowCachedResult(mode, text) {
+    const key = `${mode}::${stableKey(text)}`;
+    chrome.storage.local.get({ [ASSISTANT_CACHE_KEY]: [] }, (data) => {
+      const arr = data[ASSISTANT_CACHE_KEY] || [];
+      const hit = arr.find(x => x.key === key);
+      if (hit && assistantOutput) {
+        renderAssistantOutput(hit.output + (hit.latencySeconds ? `\n\n— Cached • ${hit.latencySeconds}s` : ''));
+      }
+    });
+  }
+
+  // Latency metrics (rolling average of last 20)
+  const LAT_METRICS_KEY = 'assistantLatencyMs';
+  async function updateAndGetAvgLatency(latencySeconds) {
+    const latencyMs = Math.round(latencySeconds * 1000);
+    return new Promise((resolve) => {
+      chrome.storage.local.get({ [LAT_METRICS_KEY]: [] }, (data) => {
+        const arr = (data[LAT_METRICS_KEY] || []).slice(-19);
+        arr.push(latencyMs);
+        chrome.storage.local.set({ [LAT_METRICS_KEY]: arr }, () => {
+          const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : latencyMs;
+          resolve(avg / 1000);
+        });
+      });
     });
   }
 
@@ -292,6 +665,36 @@ div.innerHTML = `
       copy.sort((a, b) => (b.pinned === true) - (a.pinned === true) || (b.createdAt || 0) - (a.createdAt || 0));
     }
     return copy;
+  }
+
+  // === Dashboard metrics and filters ===
+  function initDashboard() {
+    const totalEl = document.getElementById('overviewTotal');
+    const pinnedEl = document.getElementById('overviewPinned');
+    const streakEl = document.getElementById('overviewStreak');
+    const latencyEl = document.getElementById('overviewLatency');
+    const filterAll = document.getElementById('filterAll');
+    const filterHigh = document.getElementById('filterHigh');
+    const filterMid = document.getElementById('filterMid');
+    const filterLow = document.getElementById('filterLow');
+
+    chrome.storage.local.get(['bookmarks','streak', 'assistantLatencyMs'], (data) => {
+      const bms = data.bookmarks || [];
+      if (totalEl) totalEl.textContent = String(bms.length);
+      if (pinnedEl) pinnedEl.textContent = String(bms.filter(b=>b.pinned).length);
+      if (streakEl) streakEl.textContent = String(data.streak || 0);
+      const arr = data.assistantLatencyMs || [];
+      if (latencyEl) latencyEl.textContent = arr.length ? `${(arr.reduce((a,b)=>a+b,0)/arr.length/1000).toFixed(2)}s` : '—';
+    });
+
+    const applyFilter = async (mode) => {
+      await storageSet({ progressFilter: mode });
+      renderBookmarks();
+    };
+    filterAll?.addEventListener('click', () => applyFilter('all'));
+    filterHigh?.addEventListener('click', () => applyFilter('high'));
+    filterMid?.addEventListener('click', () => applyFilter('mid'));
+    filterLow?.addEventListener('click', () => applyFilter('low'));
   }
 
   // Toolbar listeners
@@ -710,11 +1113,18 @@ div.innerHTML = `
             })
           }
         );
+        if (!response.ok) {
+          // Handle common rate limiting or server errors
+          if (response.status === 429) throw new Error('RATE_LIMIT');
+          throw new Error('HTTP_' + response.status);
+        }
         const data = await response.json();
         const txt = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         return txt.trim().length > 0 ? txt : null;
       } catch (e) {
         console.warn("Gemini failed", e);
+        // Backoff once then return null
+        await new Promise(r => setTimeout(r, 600));
         return null;
       }
     };

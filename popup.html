@@ -13,6 +13,8 @@
       <h1>Your Saved Progress</h1>
     </div>
     <div class="header-right">
+      <button id="openDashboard" class="icon-btn" aria-label="Open dashboard" title="Dashboard">📊</button>
+      <button id="openAssistant" class="icon-btn" aria-label="Open assistant" title="Assistant">🤖</button>
       <button id="openCalendar" class="icon-btn" aria-label="Open calendar" title="Open calendar">📅</button>
       <!-- Top-right theme toggle -->
       <button id="themeToggle" class="theme-toggle" aria-label="Toggle light/dark" title="Toggle light/dark mode" aria-pressed="false">
@@ -47,6 +49,8 @@
       <div class="row" id="quickStats" style="font-size:13px;opacity:0.9"></div>
     </section>
 
+    
+
     <section id="bookmarks" class="card">
       <h2>⭐ Saved Items</h2>
       <div id="bookmarkList" class="list">Loading saved content…</div>
@@ -78,6 +82,100 @@
         <input id="taskTitle" type="text" placeholder="Task title or page URL" />
         <input id="taskDate" type="date" />
         <button id="scheduleTask" class="btn accent">Schedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assistant Modal -->
+  <div id="assistantModal" class="modal" aria-hidden="true" role="dialog" aria-label="Assistant">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🧠 Assistant</h3>
+        <button id="closeAssistant" class="icon-btn" aria-label="Close">✖</button>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+        <label for="assistantBookmark">Bookmark</label>
+        <select id="assistantBookmark" style="min-width:220px"></select>
+        <button id="assistantLoadBookmark" class="btn">Load</button>
+      </div>
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <label for="modeSelect">Mode</label>
+        <select id="modeSelect">
+          <option value="summarize">Summarize</option>
+          <option value="rewrite">Rewrite / Proofread</option>
+          <option value="translate">Translate</option>
+          <option value="template">Prompt Templates</option>
+        </select>
+        <div id="modeOptions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <label id="summaryStyleWrap" for="summaryStyle">
+            <span style="margin-right:4px">Style</span>
+            <select id="summaryStyle">
+              <option value="bullet">Bullet points</option>
+              <option value="short">Short</option>
+              <option value="long">Long</option>
+              <option value="takeaways">Key takeaways</option>
+            </select>
+          </label>
+          <label id="rewriteToneWrap" for="rewriteTone" style="display:none">
+            <span style="margin-right:4px">Tone</span>
+            <select id="rewriteTone">
+              <option value="formal">Formal</option>
+              <option value="casual">Casual</option>
+              <option value="concise">Concise</option>
+              <option value="creative">Creative</option>
+            </select>
+          </label>
+          <label id="translateLangWrap" for="translateLang" style="display:none">
+            <span style="margin-right:4px">Target</span>
+            <input id="translateLang" type="text" placeholder="e.g., Spanish" style="width:140px" />
+          </label>
+          <label id="templateSelectWrap" for="templateSelect" style="display:none">
+            <span style="margin-right:4px">Template</span>
+            <select id="templateSelect">
+              <option value="linkedin">Generate LinkedIn post</option>
+              <option value="studynotes">Make study notes</option>
+            </select>
+          </label>
+          <label id="intentWrap" for="assistantIntent" style="margin-left:auto">
+            <span style="margin-right:4px">Intent</span>
+            <select id="assistantIntent">
+              <option value="default">Default</option>
+              <option value="study">Study notes</option>
+              <option value="share">Shareable post</option>
+              <option value="todo">Summarize and schedule task</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <textarea id="assistantInput" rows="4" placeholder="Paste text, or use Current Page to auto-extract..." style="width:100%;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="assistantUseCurrent" class="btn">Use Current Page</button>
+          <button id="assistantRun" class="btn accent">Run</button>
+        </div>
+        <div id="assistantOutput" class="card" style="background:var(--item-bg)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Modal -->
+  <div id="dashboardModal" class="modal" aria-hidden="true" role="dialog" aria-label="Dashboard">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📊 Dashboard</h3>
+        <button id="closeDashboard" class="icon-btn" aria-label="Close">✖</button>
+      </div>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <div>Saved: <strong id="overviewTotal">0</strong></div>
+        <div>Pinned: <strong id="overviewPinned">0</strong></div>
+        <div>Streak: <strong id="overviewStreak">0</strong></div>
+        <div>Assistant Avg Latency: <strong id="overviewLatency">—</strong></div>
+      </div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button id="filterAll" class="btn">All</button>
+        <button id="filterHigh" class="btn">High progress (≥70%)</button>
+        <button id="filterMid" class="btn">Mid (30–69%)</button>
+        <button id="filterLow" class="btn">Low (&lt;30%)</button>
       </div>
     </div>
   </div>
