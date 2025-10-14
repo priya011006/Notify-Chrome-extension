@@ -1,4 +1,5 @@
 // popup.js - robust summarization using chrome.scripting.executeScript
+
 document.addEventListener("DOMContentLoaded", init);
 
 // Listen for bookmark updates from content scripts
@@ -76,6 +77,10 @@ async function init() {
   const restoreBtn = document.getElementById("restoreAll");
   const clearBtn = document.getElementById("clearAll");
   const addBtn = document.getElementById("addCurrent");
+  const openCalendarBtn = document.getElementById("openCalendar");
+  const calendarModal = document.getElementById("calendarModal");
+  const closeCalendar = document.getElementById("closeCalendar");
+  const summarizeCurrentBtn = document.getElementById("summarizeCurrent");
 
   restoreBtn?.addEventListener("click", () => chrome.runtime.sendMessage({ action: "restoreAll" }));
   clearBtn?.addEventListener("click", () => {
@@ -100,6 +105,56 @@ async function init() {
         renderBookmarks();
       });
     });
+  });
+
+  // Calendar modal open/close
+  openCalendarBtn?.addEventListener("click", () => {
+    calendarModal?.classList.add("open");
+    calendarModal?.setAttribute("aria-hidden", "false");
+  });
+  closeCalendar?.addEventListener("click", () => {
+    calendarModal?.classList.remove("open");
+    calendarModal?.setAttribute("aria-hidden", "true");
+  });
+  calendarModal?.addEventListener("click", (e) => {
+    if (e.target === calendarModal) {
+      calendarModal.classList.remove("open");
+      calendarModal.setAttribute("aria-hidden", "true");
+    }
+  });
+
+  // Universal summarizer for current tab (article/video/audio)
+  summarizeCurrentBtn?.addEventListener("click", async () => {
+    summarizeCurrentBtn.disabled = true;
+    summarizeCurrentBtn.textContent = "⏳";
+    try {
+      const [tab] = await chromeTabsQueryPromise({ active: true, currentWindow: true });
+      if (!tab?.id) throw new Error("No active tab");
+
+      // Ask content script for rich content extraction (including captions/audio fallback)
+      const content = await new Promise((resolve) => {
+        chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, (resp) => resolve(resp?.content || ""));
+      });
+      if (!content || content.length < 50) throw new Error("Content too short");
+      const summary = await summarizeWithStrongFallback(content);
+      alert("🧠 Summary:\n\n" + summary);
+    } catch (e) {
+      console.warn("Summarize current failed", e);
+      try {
+        // Last-resort: local summary on failure
+        const [tab] = await chromeTabsQueryPromise({ active: true, currentWindow: true });
+        const content = await new Promise((resolve) => {
+          chrome.tabs.sendMessage(tab?.id, { action: "extractContent" }, (resp) => resolve(resp?.content || ""));
+        });
+        const fallback = makeSummary(content || document.body?.innerText || "", 5);
+        alert("🧠 Summary (fallback):\n\n" + fallback);
+      } catch (_) {
+        alert("Could not summarize current tab.");
+      }
+    } finally {
+      summarizeCurrentBtn.disabled = false;
+      summarizeCurrentBtn.textContent = "🧠";
+    }
   });
 
   // Helper function to check if a bookmark with the same URL already exists
@@ -130,9 +185,15 @@ async function init() {
         div.className = "item";
         div.setAttribute("data-bookmark-id", b.id);
 
-        // Calculate progress based on scroll position relative to document height
-        // Default to 0 if scrollY is not available
-        const progress = b.scrollY ? Math.min(Math.floor(b.scrollY / (b.docHeight || 20000) * 100), 100) : 0;
+        // Calculate progress
+        // For videos: prefer time-based percent if available
+        let progress = 0;
+        if (b.isYouTube && typeof b.currentTime === "number" && typeof b.duration === "number" && b.duration > 0) {
+          progress = Math.min(Math.floor((b.currentTime / b.duration) * 100), 100);
+        } else {
+          // Article scroll-based progress
+          progress = b.scrollY ? Math.min(Math.floor(b.scrollY / (b.docHeight || 20000) * 100), 100) : 0;
+        }
 
 
         const isCurrent = (await chrome.tabs.query({ active: true, currentWindow: true }))
@@ -314,4 +375,318 @@ div.innerHTML = `
   function escapeHtml(str) {
     return str ? str.replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m])) : "";
   }
+
+  // new
+   // === 🧠 Smart Daily Greeting ===
+  const greetingEl = document.createElement("div");
+  greetingEl.className = "dailyGreeting";
+  const hours = new Date().getHours();
+  const greet =
+    hours < 12 ? "Good morning ☀️" :
+    hours < 18 ? "Good afternoon 🌤️" :
+    "Good evening 🌙";
+  chrome.storage.local.get({ streak: 0 }, ({ streak }) => {
+    greetingEl.textContent = `${greet} — Keep it up! ${streak > 0 ? `🔥 ${streak}-day streak!` : ""}`;
+  });
+  document.querySelector(".container").prepend(greetingEl);
+
+  // === 🔍 Search Bookmarks ===
+  const searchBox = document.getElementById("searchBookmarks");
+  if (searchBox) {
+    searchBox.addEventListener("input", () => {
+      const term = searchBox.value.toLowerCase();
+      const items = document.querySelectorAll(".item");
+      items.forEach((it) => {
+        it.style.display = it.textContent.toLowerCase().includes(term)
+          ? "block"
+          : "none";
+      });
+    });
+  }
+
+  // === 📅 Calendar Section ===
+  initCalendar();
+
+  // Calendar functionality
+  function initCalendar() {
+    const calendarGrid = document.getElementById("calendarGrid");
+    const currentMonthEl = document.getElementById("currentMonth");
+    const prevMonthBtn = document.getElementById("prevMonth");
+    const nextMonthBtn = document.getElementById("nextMonth");
+    const taskTitleInput = document.getElementById("taskTitle");
+    const taskDateInput = document.getElementById("taskDate");
+    const scheduleTaskBtn = document.getElementById("scheduleTask");
+
+    let currentDate = new Date();
+    let currentMonth = currentDate.getMonth();
+    let currentYear = currentDate.getFullYear();
+
+    // Initialize calendar
+    renderCalendar();
+
+    // Event listeners
+    prevMonthBtn?.addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+      }
+      renderCalendar();
+    });
+
+    nextMonthBtn?.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+      renderCalendar();
+    });
+
+    scheduleTaskBtn?.addEventListener("click", () => {
+      const title = taskTitleInput.value.trim();
+      const date = taskDateInput.value;
+      
+      if (!title || !date) {
+        alert("Please fill in both title and date");
+        return;
+      }
+
+      const task = {
+        id: 'task-' + Date.now(),
+        title: title,
+        date: date,
+        createdAt: Date.now(),
+        completed: false
+      };
+
+      // Save and request background to create an alarm
+      chrome.storage.local.get({ scheduledTasks: [] }, (data) => {
+        const tasks = data.scheduledTasks || [];
+        tasks.push(task);
+        chrome.storage.local.set({ scheduledTasks: tasks }, () => {
+          chrome.runtime.sendMessage({ action: 'scheduleTask', task }, () => {
+            taskTitleInput.value = '';
+            taskDateInput.value = '';
+            renderCalendar();
+            alert('Task scheduled successfully!');
+          });
+        });
+      });
+    });
+
+    function renderCalendar() {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+
+      currentMonthEl.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+      // Get first day of month and number of days
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+      // Create calendar grid
+      calendarGrid.innerHTML = '';
+
+      // Add day headers
+      const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      dayHeaders.forEach(day => {
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'calendar-day-header';
+        dayHeader.textContent = day;
+        calendarGrid.appendChild(dayHeader);
+      });
+
+      // Add empty cells for days before the first day of the month
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'calendar-day empty';
+        calendarGrid.appendChild(emptyCell);
+      }
+
+      // Add days of the month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day';
+        dayCell.textContent = day;
+        
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        dayCell.dataset.date = dateStr;
+
+        // Check if this day has scheduled tasks
+        chrome.storage.local.get({ scheduledTasks: [] }, (data) => {
+          const tasks = data.scheduledTasks || [];
+          const dayTasks = tasks.filter(task => task.date === dateStr);
+          
+          if (dayTasks.length > 0) {
+            dayCell.classList.add('has-tasks');
+            dayCell.title = `${dayTasks.length} task(s) scheduled`;
+          }
+
+          // Add click handler for day
+          dayCell.addEventListener('click', () => {
+            showDayTasks(dateStr, dayTasks);
+          });
+        });
+
+        calendarGrid.appendChild(dayCell);
+      }
+    }
+
+    function showDayTasks(date, tasks) {
+      if (tasks.length === 0) {
+        alert(`No tasks scheduled for ${date}`);
+        return;
+      }
+
+      let message = `Tasks for ${date}:\n\n`;
+      tasks.forEach((task, index) => {
+        const status = task.completed ? '✅' : '⏳';
+        message += `${index + 1}. ${status} ${task.title}\n`;
+      });
+
+      const action = confirm(message + '\n\nClick OK to mark tasks as completed, Cancel to close');
+      if (action) {
+        // Mark all tasks as completed
+        chrome.storage.local.get({ scheduledTasks: [] }, (data) => {
+          const allTasks = data.scheduledTasks || [];
+          allTasks.forEach(task => {
+            if (task.date === date) {
+              task.completed = true;
+            }
+          });
+          chrome.storage.local.set({ scheduledTasks: allTasks }, () => {
+            renderCalendar();
+            alert('Tasks marked as completed!');
+          });
+        });
+      }
+    }
+  }
+
+  // === 🧠 Gemini API Summarization (fallback to local) ===
+  async function summarizeBookmark(bookmark) {
+    const text = await extractBookmarkText(bookmark);
+    let summary = await summarizeWithStrongFallback(text);
+    return summary;
+  }
+
+  // Extract text content from bookmark
+  async function extractBookmarkText(bookmark) {
+    if (!bookmark || !bookmark.url) throw new Error("Invalid bookmark");
+
+    // try to find an existing tab with the same URL (any window)
+    const existingTabs = await chromeTabsQueryPromise({ url: bookmark.url });
+    let tab;
+    let created = false;
+    if (existingTabs && existingTabs.length > 0) {
+      tab = existingTabs[0];
+    } else {
+      tab = await chromeTabsCreatePromise({ url: bookmark.url, active: false });
+      created = true;
+    }
+
+    // wait for the tab to finish loading (or timeout)
+    await waitForTabComplete(tab.id, 10000);
+
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          function largestTextSnippet(limit = 5000) {
+            try {
+              const selectors = ['article', 'main', '[role="main"]', 'section'];
+              let best = null, bestLen = 0;
+              for (const s of selectors) {
+                const el = document.querySelector(s);
+                if (el) {
+                  const t = (el.innerText || '').replace(/\s+/g, ' ').trim();
+                  if (t.length > bestLen) { best = t; bestLen = t.length; }
+                }
+              }
+              if (!best) {
+                const candidates = Array.from(document.querySelectorAll('p, div'));
+                for (const c of candidates) {
+                  const t = (c.innerText || '').replace(/\s+/g, ' ').trim();
+                  if (t.length > bestLen) { best = t; bestLen = t.length; }
+                }
+              }
+              let text = best || document.body?.innerText || document.documentElement?.innerText || '';
+              text = text.replace(/\s+/g, ' ').trim();
+              return text.slice(0, limit);
+            } catch (e) {
+              return '';
+            }
+          }
+          return largestTextSnippet(5000);
+        }
+      });
+
+      const content = (results && results[0] && results[0].result) ? results[0].result : '';
+      if (!content || content.length < 50) throw new Error("Page content too short or blocked.");
+      return content;
+    } finally {
+      if (created) {
+        try { await chromeTabsRemovePromise(tab.id); } catch (e) { /* ignore */ }
+      }
+    }
+  }
+
+  // Strong summarization with layered fallbacks (Gemini -> heuristic extractive)
+  async function summarizeWithStrongFallback(content) {
+    const clean = (content || "").replace(/\s+/g, " ").trim();
+    if (clean.length === 0) return "No content to summarize.";
+    const tryGemini = async () => {
+      const GEMINI_API_KEY = "AIzaSyB9uUNxH_wxk1rHnriJoefhGZ_TdokMS4A";
+      if (!GEMINI_API_KEY || GEMINI_API_KEY.includes("AIzaSyB9uUNxH_wxk1rHnriJoefhGZ_TdokMS4A")) return null;
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                { parts: [ { text: `Summarize concisely in 4-6 sentences. Provide key points and any steps or takeaways if present.\n\n${clean}` } ] }
+              ]
+            })
+          }
+        );
+        const data = await response.json();
+        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        return txt.trim().length > 0 ? txt : null;
+      } catch (e) {
+        console.warn("Gemini failed", e);
+        return null;
+      }
+    };
+    const fromGemini = await tryGemini();
+    if (fromGemini) return fromGemini;
+    return makeSummaryAdvanced(clean, 5);
+  }
+
+  // Advanced heuristic extractive summarizer
+  function makeSummaryAdvanced(text, maxSentences = 5) {
+    const rawSentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+    const sentences = rawSentences.map(s => s.trim()).filter(Boolean);
+    if (sentences.length <= maxSentences) return sentences.join(" ");
+    const stop = new Set(["the","and","is","in","to","of","a","for","that","on","with","as","are","it","this","was","by","an","be","or","from","at","we","our","you","your","i","they","their","but","have","has","not","can","will","which","if","then","so","than","also"]);
+    const freq = Object.create(null);
+    const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+    for (const w of words) if (!stop.has(w)) freq[w] = (freq[w] || 0) + 1;
+    const scored = sentences.map((s, idx) => {
+      const w = s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+      let score = 0;
+      for (const t of w) if (freq[t]) score += freq[t];
+      // Slightly reward earlier sentences and longer informative ones
+      score = score / Math.sqrt(w.length || 1) + (1 / (1 + idx));
+      return { idx, s, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.slice(0, maxSentences).sort((a, b) => a.idx - b.idx);
+    return top.map(x => x.s).join(" ");
+  }
+
 }

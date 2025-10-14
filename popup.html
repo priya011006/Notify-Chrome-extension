@@ -12,11 +12,14 @@
       <img src="icon48.png" class="logo" alt="logo">
       <h1>Your Saved Progress</h1>
     </div>
-
-    <!-- Top-right theme toggle -->
-    <button id="themeToggle" class="theme-toggle" aria-label="Toggle light/dark" title="Toggle light/dark mode" aria-pressed="false">
-      <span class="icon">🌞</span>
-    </button>
+    <div class="header-right">
+      <button id="openCalendar" class="icon-btn" aria-label="Open calendar" title="Open calendar">📅</button>
+      <button id="summarizeCurrent" class="icon-btn" aria-label="Summarize current tab" title="Summarize current tab">🧠</button>
+      <!-- Top-right theme toggle -->
+      <button id="themeToggle" class="theme-toggle" aria-label="Toggle light/dark" title="Toggle light/dark mode" aria-pressed="false">
+        <span class="icon">🌞</span>
+      </button>
+    </div>
   </header>
 
   <div class="container">
@@ -27,8 +30,41 @@
     </div>
 
     <section id="bookmarks" class="card">
+      <h2>⭐ Saved Items</h2>
       <div id="bookmarkList" class="list">Loading saved content…</div>
     </section>
+
+    <!-- new -->
+     <section class="search-section">
+  <input id="searchBookmarks" type="text" placeholder="🔍 Search bookmarks..." />
+</section>
+
+
+
+  </div>
+
+  <!-- Calendar Modal -->
+  <div id="calendarModal" class="modal" aria-hidden="true" role="dialog" aria-label="Calendar">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📅 Scheduled Tasks</h3>
+        <button id="closeCalendar" class="icon-btn" aria-label="Close">✖</button>
+      </div>
+      <div id="calendarContainer">
+        <div class="calendar-header">
+          <button id="prevMonth" class="btn secondary">←</button>
+          <span id="currentMonth"></span>
+          <button id="nextMonth" class="btn secondary">→</button>
+        </div>
+        <div id="calendarGrid"></div>
+      </div>
+      <div class="schedule-form">
+        <h3>📝 Schedule New Task</h3>
+        <input id="taskTitle" type="text" placeholder="Task title or page URL" />
+        <input id="taskDate" type="date" />
+        <button id="scheduleTask" class="btn accent">Schedule</button>
+      </div>
+    </div>
   </div>
 
   <script src="popup.js"></script>

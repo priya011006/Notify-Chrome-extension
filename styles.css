@@ -69,6 +69,23 @@ header {
   border-radius: 10px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--secondary);
+  color: var(--text-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.2s ease;
+}
+.icon-btn:hover { transform: translateY(-2px); background: var(--item-bg); }
+
 /* Theme toggle in top-right */
 .theme-toggle {
   background: transparent;
@@ -111,9 +128,42 @@ header h1 {
   border: 2px solid white; /* Add white border to resource card */
 }
 
+.card h2 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
 .list {
   max-height: 260px;
   overflow-y: auto;
+}
+
+/* === Modal for Calendar === */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483647;
+}
+.modal.open { display: flex; }
+.modal-content {
+  width: 92%;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px var(--shadow);
+  padding: 12px;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .item {
@@ -195,7 +245,7 @@ header h1 {
 }
 
 .btn {
-  flex: 1;
+  flex: 1 1 30%;
   padding: 10px;
   border: 2px solid white; /* Add white border to all buttons */
   border-radius: 8px;
@@ -244,4 +294,122 @@ header h1 {
   opacity: 0;
   pointer-events: none;
   transform: translateY(10px);
+}
+
+.search-section {
+  margin-bottom: 10px;
+}
+#searchBookmarks {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.dailyGreeting {
+  font-weight: 600;
+  text-align: center;
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.analytics p, .goal p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+/* === 📅 Calendar Styles === */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--item-bg);
+  border-radius: 8px;
+}
+
+#calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 15px;
+}
+
+.calendar-day-header {
+  background: var(--accent);
+  color: white;
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.calendar-day {
+  background: var(--item-bg);
+  border: 1px solid var(--secondary);
+  padding: 8px 4px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-day:hover {
+  background: var(--accent);
+  color: white;
+  transform: scale(1.05);
+}
+
+.calendar-day.empty {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
+.calendar-day.has-tasks {
+  background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.schedule-form {
+  background: var(--item-bg);
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.schedule-form h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.schedule-form input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--secondary);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+.schedule-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(92, 124, 250, 0.2);
 }

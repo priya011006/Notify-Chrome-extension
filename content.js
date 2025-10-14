@@ -16,6 +16,28 @@ function getYouTubeTranscriptSnippet() {
   return '';
 }
 
+// Extract media context where possible
+function extractMediaContext() {
+  // Try HTML5 audio/video
+  const video = document.querySelector('video');
+  const audio = document.querySelector('audio');
+  if (video && video.duration) {
+    return {
+      type: 'video',
+      currentTime: Math.floor(video.currentTime || 0),
+      duration: Math.floor(video.duration || 0)
+    };
+  }
+  if (audio && audio.duration) {
+    return {
+      type: 'audio',
+      currentTime: Math.floor(audio.currentTime || 0),
+      duration: Math.floor(audio.duration || 0)
+    };
+  }
+  return null;
+}
+
 // Basic readable text extraction
 function extractMainText(maxChars = 4000) {
   // Attempt to use document.querySelector('article') or main
@@ -54,14 +76,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const urlObj = new URL(window.location.href);
     const isYouTube = urlObj.hostname.includes('youtube.com') && urlObj.pathname === '/watch';
     let content = '';
+    // Attempt to include minimal media context
+    const media = extractMediaContext();
     if (isYouTube) {
       const title = document.querySelector('h1.title yt-formatted-string')?.textContent || document.title;
       const description = document.querySelector('#description')?.innerText || '';
       const transcriptSnippet = getYouTubeTranscriptSnippet();
       content = `${title}\n\nDescription: ${description}\n\nTranscript Snippet: ${transcriptSnippet}`.substring(0, 4000);
+      if (media && media.type === 'video') {
+        content += `\n\n[Time Context: ${media.currentTime}s of ${media.duration}s]`;
+      }
       if (content.trim().length < 50) content = extractMainText(4000);
     } else {
       content = extractMainText(4000);
+      if (media) {
+        content += `\n\n[${media.type.toUpperCase()} Time Context: ${media.currentTime}s of ${media.duration}s]`;
+      }
     }
     sendResponse({ content });
   } else if (request.action === 'captureProgress') {
@@ -73,6 +103,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       docHeight: document.documentElement.scrollHeight - window.innerHeight,
       isYouTube: window.location.href.includes('youtube.com/watch')
     };
+    // Enrich with media context
+    const media = extractMediaContext();
+    if (media) {
+      payload.currentTime = media.currentTime;
+      payload.duration = media.duration;
+    }
     // Send to background to store
     chrome.runtime.sendMessage({ action: 'saveBookmark', payload }, (resp) => {
       sendResponse(resp);
