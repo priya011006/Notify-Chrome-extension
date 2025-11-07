@@ -16,27 +16,27 @@ The extension includes features like live progress tracking, a floating widget, 
 - **Cross-Platform**: Works on any website, with special support for YouTube videos.
 - **Privacy-Focused**: Processes content locally where possible; no data sent without user consent.
 
-## 🏗️ Architecture Visualization
+### 🏗️ Architecture Visualization
 
 Here's a high-level visualization of the extension's architecture:
 
-+-------------------+ +-------------------+ +-------------------+
-| Popup UI | | Background | | Content Scripts |
-| (popup.html/js) |<--->| Service Worker |<--->| (content.js) |
-| - Bookmarks | | (background.js) | | - Scroll Track |
-| - Assistant | | - Alarms | | - Floating Widget|
-| - Calendar | | - Storage | | - Progress Bar |
-+-------------------+ +-------------------+ +-------------------+
-| | |
-| | |
-v v v
-+-------------------+ +-------------------+ +-------------------+
-| AI Services | | Chrome APIs | | Web Page |
-| (ai-service.js) | | - Tabs | | - DOM Access |
-| - Gemini API | | - Storage | | - Scroll Events |
-| - Built-in AI | | - Notifications | | - Media Playback|
-+-------------------+ +-------------------+ +-------------------+
-
+```text
++-------------------+     +-------------------+     +-------------------+
+|   Popup UI        |     |   Background      |     |   Content Scripts |
+|   (popup.html/js) |<--->|   Service Worker  |<--->|   (content.js)    |
+|   - Bookmarks     |     |   (background.js) |     |   - Scroll Track  |
+|   - Assistant     |     |   - Alarms        |     |   - Floating Widget|
+|   - Calendar      |     |   - Storage       |     |   - Progress Bar  |
++-------------------+     +-------------------+     +-------------------+
+          |                         |                         |
+          |                         |                         |
+          v                         v                         v
++-------------------+     +-------------------+     +-------------------+
+|   AI Services     |     |   Chrome APIs     |     |   Web Page        |
+|   (ai-service.js) |     |   - Tabs          |     |   - DOM Access    |
+|   - Gemini API    |     |   - Storage       |     |   - Scroll Events |
+|   - Built-in AI   |     |   - Notifications |     |   - Media Playback|
++-------------------+     +-------------------+     +-------------------+
 
 - **Popup UI**: The main interface for managing bookmarks, accessing the assistant, and viewing the calendar.
 - **Background Service Worker**: Handles alarms, notifications, storage, and message passing.
@@ -131,24 +131,23 @@ v v v
 - **Theme Toggle**: In the popup header, switch between light/dark modes.
 - **AI Settings**: Enable/disable features in `ai-service.js` or via Chrome flags.
 
-## 🛠️ Development
+### 🛠️ Development
 
-### File Structure
-
+#### File Structure
+```text
 Notify/
-├── manifest.json # Extension manifest
-├── popup.html/js # Main popup interface
-├── background.js # Service worker
-├── content.js # Page injection scripts
-├── ai-service.js # AI integration
-├── ai.js # Gemini API helper
-├── ai-client.js # Hybrid AI client
-├── styles.css # Styling
-├── options.html/js # Settings page
-├── test.html # Test page
-├── icons/ # Icon assets
-└── README.md # This file
-
+├── manifest.json          # Extension manifest
+├── popup.html/js          # Main popup interface
+├── background.js          # Service worker
+├── content.js             # Page injection scripts
+├── ai-service.js          # AI integration
+├── ai.js                  # Gemini API helper
+├── ai-client.js           # Hybrid AI client
+├── styles.css             # Styling
+├── options.html/js        # Settings page
+├── test.html              # Test page
+├── icons/                 # Icon assets
+└── README.md              # This file
 
 ### Building & Testing
 - **Local Testing**: Load unpacked as described in Installation.
