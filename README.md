@@ -125,22 +125,6 @@ v v v
 - **Calendar Modal**:
   - Schedule tasks by date and view them in the grid.
 
-### Screenshots
-*(Add actual images here by replacing with paths like `screenshots/popup.png`)*
-
-- **Main Popup**: Shows bookmarks with progress bars and action buttons.  
-  ![Popup Screenshot](<img width="1920" height="1020" alt="Screenshot 2025-11-08 030138" src="https://github.com/user-attachments/assets/11b4da5a-936d-4443-9b68-7efa03ec9be7" />
-)
-
-- **Assistant Modal**: AI tools for summarization and rewriting.  
-  ![Assistant Screenshot](screenshots/assistant.png)
-
-- **Calendar View**: Task scheduling interface.  
-  ![Calendar Screenshot](screenshots/calendar.png)
-
-- **Floating Widget**: Quick-access overlay on web pages.  
-  ![Widget Screenshot](screenshots/widget.png)
-
 ## 🔧 Configuration
 
 - **Options Page**: Access via right-click on the extension icon → "Options." Configure daily reminders and UTC hour.
