@@ -1,6 +1,6 @@
 # NOTIFY-Vibrant Progress Tracker
 
-![Extension Icon](icon128.png)  
+![Extension Icon](tracker.png)  
 *A smart Chrome extension for tracking reading progress, summarizing content, and managing bookmarks with AI-powered features.*
 
 ## 📖 Overview
