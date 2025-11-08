@@ -134,8 +134,11 @@ Here's a high-level visualization of the extension's architecture:
 
 ### 🛠️ Development
 
-#### File Structure
+### 🛠️ Development
 
+#### File Structure
+📁 **Project Structure**
+```text
 Notify/
 ├── manifest.json          # Extension manifest
 ├── popup.html/js          # Main popup interface
@@ -149,6 +152,7 @@ Notify/
 ├── test.html              # Test page
 ├── icons/                 # Icon assets
 └── README.md              # This file
+
 
 ### Building & Testing
 - **Local Testing**: Load unpacked as described in Installation.
