@@ -138,6 +138,7 @@ Here's a high-level visualization of the extension's architecture:
 
 #### File Structure
 📁 **Project Structure**
+<pre>
 ```text
 Notify/
 ├── manifest.json          # Extension manifest
@@ -152,7 +153,7 @@ Notify/
 ├── test.html              # Test page
 ├── icons/                 # Icon assets
 └── README.md              # This file
-
+</pre>
 
 ### Building & Testing
 - **Local Testing**: Load unpacked as described in Installation.
