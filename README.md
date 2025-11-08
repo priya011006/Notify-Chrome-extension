@@ -20,7 +20,7 @@ The extension includes features like live progress tracking, a floating widget, 
 
 Here's a high-level visualization of the extension's architecture:
 
-```text
+<pre>
 +-------------------+     +-------------------+     +-------------------+
 |   Popup UI        |     |   Background      |     |   Content Scripts |
 |   (popup.html/js) |<--->|   Service Worker  |<--->|   (content.js)    |
@@ -29,7 +29,6 @@ Here's a high-level visualization of the extension's architecture:
 |   - Calendar      |     |   - Storage       |     |   - Progress Bar  |
 +-------------------+     +-------------------+     +-------------------+
           |                         |                         |
-          |                         |                         |
           v                         v                         v
 +-------------------+     +-------------------+     +-------------------+
 |   AI Services     |     |   Chrome APIs     |     |   Web Page        |
@@ -37,6 +36,8 @@ Here's a high-level visualization of the extension's architecture:
 |   - Gemini API    |     |   - Storage       |     |   - Scroll Events |
 |   - Built-in AI   |     |   - Notifications |     |   - Media Playback|
 +-------------------+     +-------------------+     +-------------------+
+</pre>
+
 
 - **Popup UI**: The main interface for managing bookmarks, accessing the assistant, and viewing the calendar.
 - **Background Service Worker**: Handles alarms, notifications, storage, and message passing.
@@ -134,7 +135,7 @@ Here's a high-level visualization of the extension's architecture:
 ### 🛠️ Development
 
 #### File Structure
-```text
+
 Notify/
 ├── manifest.json          # Extension manifest
 ├── popup.html/js          # Main popup interface
@@ -193,6 +194,5 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 - Icons from [Flaticon](https://www.flaticon.com/).
 
 ---
-
 For issues or feature requests, open an issue on GitHub.  
 Happy reading! 📚
